@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "aws-sdk": "^2.1659.0",
+    "pdf-lib": "^1.17.1"
+  }
+}
