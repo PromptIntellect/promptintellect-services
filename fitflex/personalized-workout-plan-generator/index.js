@@ -39,7 +39,7 @@ exports.handler = async (event) => {
       health_conditions
     });
 
-    const openaiResult = await invokeOpenAiLambda(prompt, execution_id);
+    const openaiResult = await invokeOpenAiLambda(prompt, execution_id, product_id, user_id, 'chat-gpt-4o', '3x');
 
     const workoutPlanHtml = generateWorkoutPlanHtml(openaiResult, {
       goal
@@ -107,28 +107,6 @@ function generatePrompt(inputs) {
   `;
 }
 
-async function invokeOpenAiLambda(prompt, execution_id) {
-  const payload = {
-    execution_id,
-    prompt
-  };
-
-  const response = await lambda.invoke({
-    FunctionName: process.env.PI_OPENAI_CHAT_FUNCTION,
-    InvocationType: 'RequestResponse',
-    Payload: JSON.stringify(payload)
-  }).promise();
-
-  console.log(`response from OpenAI: ${JSON.stringify(response, null, 2)}`);
-
-  const responsePayload = JSON.parse(response.Payload);
-  if (responsePayload.status_code !== 200) {
-    throw new Error(`OpenAI Lambda function returned status code ${responsePayload.status_code}`);
-  }
-
-  const openaiBody = responsePayload.body;
-  return openaiBody.choices[0].message.content;
-}
 
 function generateWorkoutPlanHtml(openaiResult, inputs) {
   const { goal } = inputs;
@@ -165,6 +143,35 @@ function generateHtmlMessage() {
         <p>Please consult with a healthcare professional before starting any new exercise program. Stay hydrated and listen to your body.</p>
     </div>
   `;
+}
+
+// PI - internal
+// TODO: provide them as a package
+async function invokeOpenAiLambda(prompt, execution_id, product_id, user_id, service, size) {
+  const payload = {
+    user_id,
+    product_id,
+    execution_id,
+    prompt,
+    service,
+    size
+  };
+
+  const response = await lambda.invoke({
+    FunctionName: process.env.PI_OPENAI_FUNCTION,
+    InvocationType: 'RequestResponse',
+    Payload: JSON.stringify(payload),
+  }).promise();
+
+  console.log(`response from OpenAI: ${JSON.stringify(response, null, 2)}`);
+
+  const responsePayload = JSON.parse(response.Payload);
+  if (responsePayload.status_code !== 200) {
+    throw new Error(`OpenAI Lambda function returned status code ${responsePayload.status_code}`);
+  }
+
+  const openaiBody = responsePayload.body;
+  return openaiBody.choices[0].message.content;
 }
 
 function sendResultToWordPress(result) {
