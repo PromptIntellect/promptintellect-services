@@ -1,0 +1,8 @@
+{
+  "dependencies": {
+    "aws-sdk": "^2.1662.0",
+    "axios": "^1.7.2",
+    "cheerio": "^1.0.0-rc.12",
+    "https": "^1.0.0"
+  }
+}
