@@ -1,0 +1,11 @@
+AWSSDK.Lambda
+AWSSDK.S3
+Amazon.Lambda.APIGatewayEvents
+Amazon.Lambda.Core
+HtmlAgilityPack
+System.Net.Http
+System.Text.Json
+Newtonsoft.Json
+Amazon.Lambda.Serialization.SystemTextJson
+HtmlAgilityPack
+System.Text.RegularExpressions
