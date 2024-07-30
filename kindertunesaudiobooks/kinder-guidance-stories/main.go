@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -186,6 +187,7 @@ func ConvertStoryToAudio(req Request, story string) ([]string, error) {
 
 	var allAudioURLs []string
 	bucketName := os.Getenv("PI_EXECUTION_S3_BUCKET_NAME")
+	internalFolder := os.Getenv("PI_INTERNAL_FOLDER")
 	resultFolder := os.Getenv("PI_RESULTS_FOLDER")
 
 	for _, part := range parts {
@@ -193,8 +195,8 @@ func ConvertStoryToAudio(req Request, story string) ([]string, error) {
 			"user_id":      req.UserID,
 			"product_id":   req.ProductID,
 			"execution_id": req.ExecutionID,
-			"vendor_id":    req.VendorID, // Ensure vendor_id is included
-			"input":        part,         // Ensure input data is provided
+			"vendor_id":    req.VendorID,
+			"input":        part,
 			"service":      "text_to_speech-tts-1",
 			"size":         "2x",
 		}
@@ -220,8 +222,12 @@ func ConvertStoryToAudio(req Request, story string) ([]string, error) {
 			return nil, fmt.Errorf("error unmarshalling response payload: %v", err)
 		}
 
-		// Log the full response payload for debugging
-		log.Printf("OpenAI Lambda response payload: %v", responsePayload)
+		// Pretty-print the full response payload for debugging
+		responsePayloadBytes, err := json.MarshalIndent(responsePayload, "", "  ")
+		if err != nil {
+			return nil, fmt.Errorf("error formatting response payload: %v", err)
+		}
+		log.Printf("OpenAI Lambda response payload:\n%s", responsePayloadBytes)
 
 		if status, ok := responsePayload["status_code"].(float64); !ok || int(status) != 200 {
 			return nil, fmt.Errorf("OpenAI Lambda function returned error: %v", responsePayload)
@@ -232,20 +238,86 @@ func ConvertStoryToAudio(req Request, story string) ([]string, error) {
 			return nil, fmt.Errorf("invalid body format in response payload: %v", responsePayload)
 		}
 
-		// Extract file name and construct the S3 URL
+		// Extract file name and construct the internal S3 path
 		fileName, ok := body["file_name"].(string)
 		if !ok {
 			return nil, fmt.Errorf("file_name not found in response payload: %v", responsePayload)
 		}
 
-		// Construct the S3 URL
-		audioURL := fmt.Sprintf("https://%s.s3.amazonaws.com/%s/%s", bucketName, resultFolder, fileName)
-		log.Printf("Audio URL: %s", audioURL) // Log the audio URL
+		// Construct the internal S3 path without duplication
+		internalPath := fmt.Sprintf("%s/%s/%s", internalFolder, req.ExecutionID, fileName)
+		log.Printf("Attempting to download from S3 path: %s/%s", bucketName, internalPath) // Log the S3 path
+
+		downloadedFilePath, err := downloadFromS3(bucketName, internalPath, fileName)
+		if err != nil {
+			return nil, fmt.Errorf("error downloading audio file: %v", err)
+		}
+
+		// Upload the downloaded file to the result folder in S3
+		key := fmt.Sprintf("%s/%s", resultFolder, fileName)
+		if err := uploadToS3(bucketName, key, downloadedFilePath); err != nil {
+			return nil, fmt.Errorf("error uploading audio to S3: %v", err)
+		}
+
+		// Construct the URL for the uploaded file
+		audioURL := fmt.Sprintf("https://%s.s3.amazonaws.com/%s", bucketName, key)
+		log.Printf("Audio URL: %s", audioURL)
 
 		allAudioURLs = append(allAudioURLs, audioURL)
 	}
 
 	return allAudioURLs, nil
+}
+
+// downloadFromS3 downloads a file from the specified S3 bucket and path
+func downloadFromS3(bucketName, s3Path, fileName string) (string, error) {
+	sess := session.Must(session.NewSession())
+	svc := s3.New(sess)
+
+	localFilePath := fmt.Sprintf("/tmp/%s", fileName)
+	file, err := os.Create(localFilePath)
+	if err != nil {
+		return "", fmt.Errorf("failed to create file %s: %v", localFilePath, err)
+	}
+	defer file.Close()
+
+	output, err := svc.GetObject(&s3.GetObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(s3Path),
+	})
+	if err != nil {
+		return "", fmt.Errorf("failed to download file from S3: %v", err)
+	}
+
+	_, err = io.Copy(file, output.Body)
+	if err != nil {
+		return "", fmt.Errorf("failed to write file %s: %v", localFilePath, err)
+	}
+
+	return localFilePath, nil
+}
+
+// uploadToS3 uploads a file to the specified S3 bucket and path
+func uploadToS3(bucketName, s3Path, localFilePath string) error {
+	sess := session.Must(session.NewSession())
+	svc := s3.New(sess)
+
+	file, err := os.Open(localFilePath)
+	if err != nil {
+		return fmt.Errorf("failed to open file %s: %v", localFilePath, err)
+	}
+	defer file.Close()
+
+	_, err = svc.PutObject(&s3.PutObjectInput{
+		Bucket: aws.String(bucketName),
+		Key:    aws.String(s3Path),
+		Body:   file,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to upload file to S3: %v", err)
+	}
+
+	return nil
 }
 
 // SendResultToWordPress sends the result to WordPress
