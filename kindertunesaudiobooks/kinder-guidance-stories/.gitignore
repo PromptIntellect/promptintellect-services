@@ -1,0 +1,50 @@
+# Binaries for programs and plugins
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build output
+*.test
+*.out
+
+# Output of the build
+/build/
+
+# Vendor directory (optional, since dependencies can be re-fetched)
+vendor/
+
+# Logs and debug output
+*.log
+
+# IDE and editor-specific files
+.idea/
+.vscode/
+*.swp
+
+# Go build artifacts
+main
+main.zip
+*.o
+*.a
+
+# Dependency directories
+Godeps/
+
+# Environment variables and secrets (ensure to replace .env.example with your actual file)
+.env
+.env.local
+.env.*.local
+.envrc
+
+# Ignore go.sum file if you want to use Go modules and avoid including hash info
+# in your source control. However, including go.sum is recommended to ensure
+# consistent builds.
+# go.sum
+
+# Other artifacts and temporary files
+*.bak
+*.tmp
+*.temp
+bootstrap
+*.zip
