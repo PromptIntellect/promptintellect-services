@@ -33,6 +33,11 @@ import java.util.List;
 import java.io.IOException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+
+import org.commonmark.node.*;
+import org.commonmark.parser.Parser;
+import org.commonmark.renderer.html.HtmlRenderer;
 
 public class InstagramPostHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
@@ -59,6 +64,10 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
             Map<String, String> customInputs = (Map<String, String>) event.get("custom_inputs");
             String explanation = customInputs.getOrDefault("explanation", "");
 
+            // just for debugging
+            logger.log("customInputs: " + customInputs);
+            logger.log("explanation: " + explanation);
+
             // Generate Instagram post caption
             String captionPrompt = "Create an Instagram post caption based on the following explanation:\n\n" + explanation;
             String openaiCaptionResult = invokeOpenaiLambda(executionId, userId, productId, captionPrompt, "chat-gpt-4o", "1x", openaiFunction, logger);
@@ -66,10 +75,15 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
             String caption = (String) ((Map<String, Object>) ((Map<String, Object>) ((List<Object>) openaiCaptionMap.get("choices")).get(0)).get("message")).get("content");
 
             // Generate Instagram post image
-            String imagePrompt = "Generate an image based on the following explanation:\n\n" + explanation;
+            String imagePrompt = "Generate an image based on the following explanation, this image will be used for non-commercial purposes:\n\n" + explanation;
+            
+            // just for debugging
+            logger.log("imagePrompt: " + imagePrompt);
+            logger.log("caption: " + caption);
+            
             String openaiImageResult = invokeOpenaiLambda(executionId, userId, productId, imagePrompt, "image-dall-e-3", "1x", openaiFunction, logger);
             Map<String, Object> openaiImageMap = objectMapper.readValue(openaiImageResult, new TypeReference<Map<String, Object>>() {});
-            String imageUrl = (String) ((Map<String, Object>) ((Map<String, Object>) openaiImageMap.get("data")).get(0)).get("url");
+            String imageUrl = (String) ((Map<String, Object>) ((List<Object>) openaiImageMap.get("data")).get(0)).get("url");
 
             // Upload the image to S3
             String uploadedImageKey = downloadAndUploadToS3(imageUrl, bucketName, resultFolder + "/" + executionId, logger);
@@ -146,10 +160,13 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
         try {
             HttpEntity entity = response.getEntity();
             if (entity != null) {
-                String fileName = folderPath + "/" + url.substring(url.lastIndexOf('/') + 1, url.indexOf('?'));
-                s3Client.putObject(bucketName, fileName, entity.getContent(), null);
-                logger.log("File " + fileName + " uploaded to S3 bucket " + bucketName);
-                return fileName;
+                String baseUrl = url.split("\\?")[0];
+                String[] urlParts = baseUrl.split("/");
+                String fileName = urlParts[urlParts.length - 1];
+                String fullPath = folderPath + "/" + fileName;
+                s3Client.putObject(bucketName, fullPath, entity.getContent(), null);
+                logger.log("File " + fullPath + " uploaded to S3 bucket " + bucketName);
+                return fullPath;
             } else {
                 throw new RuntimeException("Failed to download image from URL");
             }
@@ -164,25 +181,24 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
                 "<p><strong>Execution ID:</strong> " + executionId + "</p>" +
                 "<p><strong>User ID:</strong> " + userId + "</p>" +
                 "<p><strong>Product ID:</strong> " + productId + "</p>" +
-                "<p><strong>Caption:</strong><br><pre>" + markdownToHtml(decodeUnicode(caption)) + "</pre></p>" +
+                "<p><strong>Caption:</strong><br><pre>" + markdownToHtml(escape(caption)) + "</pre></p>" +
                 "</div>";
     }
 
-    private String decodeUnicode(String inputStr) {
-        Pattern pattern = Pattern.compile("\\\\u([0-9A-Fa-f]{4})");
-        Matcher matcher = pattern.matcher(inputStr);
-        StringBuffer result = new StringBuffer();
-        while (matcher.find()) {
-            String unicodeChar = String.valueOf((char) Integer.parseInt(matcher.group(1), 16));
-            matcher.appendReplacement(result, unicodeChar);
-        }
-        matcher.appendTail(result);
-        return result.toString();
+    private String escape(String s) {
+        return s.codePoints()
+            .mapToObj(codePoint -> codePoint > 127 ?
+                "&#x" + Integer.toHexString(codePoint) + ";" :
+                 new String(Character.toChars(codePoint)))
+        .collect(Collectors.joining());
     }
 
     private String markdownToHtml(String markdown) {
-        // Simple replacement for the sake of this example, consider using a library for more complex conversions
-        return markdown.replaceAll("\n", "<br>");
+        HtmlRenderer renderer = HtmlRenderer.builder().build();
+        Parser parser = Parser.builder().build();
+        Node document = parser.parse(markdown);
+        
+        return renderer.render(document);
     }
 
     private void sendResultToWordpress(Map<String, Object> result, LambdaLogger logger) throws IOException {
