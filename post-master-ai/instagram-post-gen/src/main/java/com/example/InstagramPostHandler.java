@@ -39,6 +39,8 @@ import org.commonmark.node.*;
 import org.commonmark.parser.Parser;
 import org.commonmark.renderer.html.HtmlRenderer;
 
+import emoji4j.EmojiUtils;
+
 public class InstagramPostHandler implements RequestHandler<Map<String, Object>, Map<String, Object>> {
 
     private final AmazonS3 s3Client = AmazonS3ClientBuilder.defaultClient();
@@ -64,10 +66,6 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
             Map<String, String> customInputs = (Map<String, String>) event.get("custom_inputs");
             String explanation = customInputs.getOrDefault("explanation", "");
 
-            // just for debugging
-            logger.log("customInputs: " + customInputs);
-            logger.log("explanation: " + explanation);
-
             // Generate Instagram post caption
             String captionPrompt = "Create an Instagram post caption based on the following explanation:\n\n" + explanation;
             String openaiCaptionResult = invokeOpenaiLambda(executionId, userId, productId, captionPrompt, "chat-gpt-4o", "1x", openaiFunction, logger);
@@ -76,11 +74,6 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
 
             // Generate Instagram post image
             String imagePrompt = "Generate an image based on the following explanation, this image will be used for non-commercial purposes:\n\n" + explanation;
-            
-            // just for debugging
-            logger.log("imagePrompt: " + imagePrompt);
-            logger.log("caption: " + caption);
-            
             String openaiImageResult = invokeOpenaiLambda(executionId, userId, productId, imagePrompt, "image-dall-e-3", "1x", openaiFunction, logger);
             Map<String, Object> openaiImageMap = objectMapper.readValue(openaiImageResult, new TypeReference<Map<String, Object>>() {});
             String imageUrl = (String) ((Map<String, Object>) ((List<Object>) openaiImageMap.get("data")).get(0)).get("url");
@@ -176,12 +169,14 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
     }
 
     private String generateHtmlMessage(String executionId, Integer userId, Integer productId, String caption) {
+        String markdownHtml = markdownToHtml(caption);
+        String finalHtml = EmojiUtils.hexHtmlify(markdownHtml);
         return "<div style=\"padding: 20px; background-color: #f0f0f0; border-radius: 5px;\">" +
                 "<h2>Instagram Post Creation Result</h2>" +
                 "<p><strong>Execution ID:</strong> " + executionId + "</p>" +
                 "<p><strong>User ID:</strong> " + userId + "</p>" +
                 "<p><strong>Product ID:</strong> " + productId + "</p>" +
-                "<p><strong>Caption:</strong><br><pre>" + markdownToHtml(escape(caption)) + "</pre></p>" +
+                "<p><strong>Caption:</strong><br><pre>" + finalHtml + "</pre></p>" +
                 "</div>";
     }
 
@@ -197,7 +192,7 @@ public class InstagramPostHandler implements RequestHandler<Map<String, Object>,
         HtmlRenderer renderer = HtmlRenderer.builder().build();
         Parser parser = Parser.builder().build();
         Node document = parser.parse(markdown);
-        
+
         return renderer.render(document);
     }
 

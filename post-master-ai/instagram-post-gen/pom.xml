@@ -76,5 +76,10 @@
       <artifactId>commonmark</artifactId>
       <version>0.22.0</version>
     </dependency>
+    <dependency>
+      <groupId>com.kcthota</groupId>
+      <artifactId>emoji4j</artifactId>
+      <version>6.0</version>
+    </dependency>
   </dependencies>
 </project>
