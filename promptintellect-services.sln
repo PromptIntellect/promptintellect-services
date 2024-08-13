@@ -1,0 +1,36 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.002.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "blog-craft-ai", "blog-craft-ai", "{69754B90-58AD-40AB-A3F4-2B7AD971DE73}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "smart-brand-blog-post", "smart-brand-blog-post", "{2FAAE37A-83E1-4F90-A539-7F15351C7B4D}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{D0CEA647-C986-4ADA-8472-7EDA7E62970C}"
+EndProject
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "SmartBrandBlogPost", "blog-craft-ai\smart-brand-blog-post\src\SmartBrandBlogPost\SmartBrandBlogPost.csproj", "{5C664F61-A98E-4378-8A1F-300E2EE483F9}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{5C664F61-A98E-4378-8A1F-300E2EE483F9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{5C664F61-A98E-4378-8A1F-300E2EE483F9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{5C664F61-A98E-4378-8A1F-300E2EE483F9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{5C664F61-A98E-4378-8A1F-300E2EE483F9}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{2FAAE37A-83E1-4F90-A539-7F15351C7B4D} = {69754B90-58AD-40AB-A3F4-2B7AD971DE73}
+		{D0CEA647-C986-4ADA-8472-7EDA7E62970C} = {2FAAE37A-83E1-4F90-A539-7F15351C7B4D}
+		{5C664F61-A98E-4378-8A1F-300E2EE483F9} = {D0CEA647-C986-4ADA-8472-7EDA7E62970C}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {25260A0E-CB31-4D6E-BB18-4DF0E6CF0E79}
+	EndGlobalSection
+EndGlobal
